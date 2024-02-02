@@ -10,7 +10,10 @@ The file 'requirements.txt' lists the required packages.
 1. We recommend to use a virtual environment to ensure consistency, e.g.   
 `conda create -n ai-project python=3.8`
 
-2. Install the dependencies:  
+2. Activate the new environment
+`conda activate ai-project`
+
+3. Install the dependencies:  
 `conda install -c conda-forge --file requirements.txt` 
 
 

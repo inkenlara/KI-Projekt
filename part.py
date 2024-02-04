@@ -33,11 +33,6 @@ class Part:
     def __hash__(self) -> int:
         """ Defines hash of a component. Needed for software tests. """
         return hash((self.get_part_id() + self.get_family_id()))
-    
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return self.get_part_id() == other.get_part_id() and self.get_family_id() == other.get_family_id()
 
     def __lt__(self, other) -> bool:
         """ Defines an order on components. """

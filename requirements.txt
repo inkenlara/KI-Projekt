@@ -4,3 +4,4 @@ numpy
 scikit-learn
 urllib3
 pytorch
+pytest

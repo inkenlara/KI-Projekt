@@ -16,20 +16,28 @@ class Graph:
     """
 
     def __init__(self, construction_id: int = None):
-        self.__construction_id: int = construction_id  # represents unix timestamp of creation date
+        self.__construction_id: int = (
+            construction_id  # represents unix timestamp of creation date
+        )
         self.__nodes: Set[Node] = set()
         self.__edges: Dict[Node, List[Node]] = {}
         self.__node_counter: int = 0  # internal node id counter
         self.__is_connected: bool = None  # determines if the graph is connected
-        self.__contains_cycle: bool = None   # determines if the graph contains non-trivial cycles
-        self.__is_bidirectional: bool = None  # determines if all edges are bidirectional
+        self.__contains_cycle: bool = (
+            None  # determines if the graph contains non-trivial cycles
+        )
+        self.__is_bidirectional: bool = (
+            None  # determines if all edges are bidirectional
+        )
 
     def __eq__(self, other) -> bool:
-        """ Specifies equality of two graph instances. """
+        """Specifies equality of two graph instances."""
         if other is None:
             return False
         if not isinstance(other, Graph):
-            raise TypeError(f'Can not compare different types ({type(self)} and {type(other)})')
+            raise TypeError(
+                f"Can not compare different types ({type(self)} and {type(other)})"
+            )
 
         # Equality is defined based on the *parts*, the node id is not relevant
         # compare number of nodes
@@ -49,13 +57,65 @@ class Graph:
             if len(self_node_neighbors) != len(other_node_neighbors):
                 return False
             for neighbor_idx in range(len(self_node_neighbors)):
-                if not self_node_neighbors[neighbor_idx].get_part() \
-                        .equivalent(other_node_neighbors[neighbor_idx].get_part()):
+                if (
+                    not self_node_neighbors[neighbor_idx]
+                    .get_part()
+                    .equivalent(other_node_neighbors[neighbor_idx].get_part())
+                ):
                     return False
         return True
 
+    def tree_eq(self, other):
+        if other is None:
+            return False
+        if not isinstance(other, Graph):
+            raise TypeError(
+                f"Can not compare different types ({type(self)} and {type(other)})"
+            )
+        self_edges = {node: edges.copy() for (node, edges) in self.get_edges().items()}
+        other_edges = {
+            node: edges.copy() for (node, edges) in other.get_edges().items()
+        }
+        while len(self_edges) > 1:
+            self_leaf_edges = [
+                (node, edges[0])
+                for (node, edges) in self_edges.items()
+                if len(edges) == 1
+            ]
+            successful = False
+            for leaf_edge in self_leaf_edges:
+                other_equivalents = [
+                    (node, edges[0])
+                    for (node, edges) in other_edges.items()
+                    if len(edges) == 1
+                    and node.get_part().equivalent(leaf_edge[0].get_part())
+                    and edges[0].get_part().equivalent(leaf_edge[1].get_part())
+                ]
+                # test_equivalents = [(node, edges[0]) for (node, edges) in other_edges.items() if len(edges) == 1]
+                # print(f"{test_equivalents[1][0].get_part()}=={leaf_edge[0].get_part()} and {test_equivalents[1][1].get_part()}=={leaf_edge[1].get_part()}")
+                if len(other_equivalents) > 0:
+                    successful = True
+                    del self_edges[leaf_edge[0]]
+                    del other_edges[other_equivalents[0][0]]
+                    self_edges[leaf_edge[1]].remove(leaf_edge[0])
+                    other_edges[other_equivalents[0][1]].remove(other_equivalents[0][0])
+                    break
+            if not successful:
+                return False
+        self_last_node, self_last_edges = [
+            (node, edges) for (node, edges) in self_edges.items()
+        ][0]
+        other_last_node, other_last_edges = [
+            (node, edges) for (node, edges) in other_edges.items()
+        ][0]
+        return (
+            self_last_node.get_part().equivalent(other_last_node.get_part())
+            and self_last_edges == []
+            and other_last_edges == []
+        )
+
     def __hash__(self) -> int:
-        """ Defines hash of a graph. """
+        """Defines hash of a graph."""
         hash_value = hash("Graph")
         for k, v in self.get_edges().items():
             pair = (k, tuple(v))
@@ -79,7 +139,7 @@ class Graph:
         return node
 
     def __add_node(self, node):
-        """ Adds a node to the internal set of nodes. """
+        """Adds a node to the internal set of nodes."""
         self.__nodes.add(node)
 
     def add_undirected_edge(self, part1: Part, part2: Part):
@@ -122,11 +182,19 @@ class Graph:
                 self.__edges[source_node] = sorted(connected_nodes + [sink_node])
 
     def get_node(self, node_id: int):
-        """ Returns the corresponding node for a given node id. """
+        """Returns the corresponding node for a given node id."""
         matching_nodes = [node for node in self.get_nodes() if node.get_id() is node_id]
         if not matching_nodes:
-            raise AttributeError('Given node id not found.')
+            raise AttributeError("Given node id not found.")
         return matching_nodes[0]
+
+    def get_degree(self, part: Part) -> int:
+        assert part in self.get_parts()
+        return len(
+            self.__edges[
+                [node for node in self.get_nodes() if node.get_part() is part][0]
+            ]
+        )
 
     def to_nx(self):
         """
@@ -136,7 +204,7 @@ class Graph:
         graph_nx = nx.Graph()
         for node in self.get_nodes():
             part = node.get_part()
-            info = f'\nPartID={part.get_part_id()}\nFamilyID={part.get_family_id()}'
+            info = f"\nPartID={part.get_part_id()}\nFamilyID={part.get_family_id()}"
 
             graph_nx.add_node(node, info=info)
 
@@ -148,9 +216,9 @@ class Graph:
         return graph_nx
 
     def draw(self):
-        """ Draws the graph with NetworkX and displays it. """
+        """Draws the graph with NetworkX and displays it."""
         graph_nx = self.to_nx()
-        labels = nx.get_node_attributes(graph_nx, 'info')
+        labels = nx.get_node_attributes(graph_nx, "info")
         nx.draw(graph_nx, labels=labels)
         plt.show()
 
@@ -194,7 +262,9 @@ class Graph:
         seen_nodes: List[Node] = [start_node]
         while queue:
             curr_node, parent_node = queue.pop()
-            new_neighbors: List[Node] = [n for n in self.get_edges().get(curr_node) if n != parent_node]
+            new_neighbors: List[Node] = [
+                n for n in self.get_edges().get(curr_node) if n != parent_node
+            ]
             queue.extend([(n, curr_node) for n in new_neighbors if n not in seen_nodes])
             seen_nodes.extend(new_neighbors)
         return seen_nodes
@@ -205,7 +275,7 @@ class Graph:
         :return: boolean if the graph is connected
         """
         if self.get_nodes() == set():
-            raise BaseException('Operation not allowed on empty graphs.')
+            raise BaseException("Operation not allowed on empty graphs.")
 
         if self.__is_connected is None:
             # choose random start node and start breadth search
@@ -223,7 +293,7 @@ class Graph:
         :return: boolean if the graph contains a cycle
         """
         if self.get_nodes() == set():
-            raise BaseException('Operation not allowed on empty graphs.')
+            raise BaseException("Operation not allowed on empty graphs.")
 
         if self.__contains_cycle is None:
             # choose random start node and start breadth search
@@ -253,4 +323,3 @@ class Graph:
                     adj_matrix[idx, idx2] = adj_matrix[idx2, idx] = 1
 
         return adj_matrix
-

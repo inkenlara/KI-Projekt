@@ -4,7 +4,6 @@ import networkx as nx
 import numpy as np
 from typing import Dict, List, Set, Tuple, Union
 
-
 from node import Node
 from part import Part
 
@@ -38,80 +37,8 @@ class Graph:
             raise TypeError(
                 f"Can not compare different types ({type(self)} and {type(other)})"
             )
-
-        # Equality is defined based on the *parts*, the node id is not relevant
-        # compare number of nodes
-        self_nodes_sorted = sorted(self.get_edges().keys())
-        other_nodes_sorted = sorted(other.get_edges().keys())
-        if len(self_nodes_sorted) != len(other_nodes_sorted):
-            return False
-        for node_idx in range(len(self_nodes_sorted)):
-            # check that parts of sorted nodes in both instances are equivalent
-            self_node = self_nodes_sorted[node_idx]
-            other_node = other_nodes_sorted[node_idx]
-            if not self_node.get_part().equivalent(other_node.get_part()):
-                return False
-            # check that edges are equivalent
-            self_node_neighbors = self.get_edges()[self_node]
-            other_node_neighbors = other.get_edges()[other_node]
-            if len(self_node_neighbors) != len(other_node_neighbors):
-                return False
-            for neighbor_idx in range(len(self_node_neighbors)):
-                if (
-                    not self_node_neighbors[neighbor_idx]
-                    .get_part()
-                    .equivalent(other_node_neighbors[neighbor_idx].get_part())
-                ):
-                    return False
-        return True
-
-    def tree_eq(self, other):
-        if other is None:
-            return False
-        if not isinstance(other, Graph):
-            raise TypeError(
-                f"Can not compare different types ({type(self)} and {type(other)})"
-            )
-        self_edges = {node: edges.copy() for (node, edges) in self.get_edges().items()}
-        other_edges = {
-            node: edges.copy() for (node, edges) in other.get_edges().items()
-        }
-        while len(self_edges) > 1:
-            self_leaf_edges = [
-                (node, edges[0])
-                for (node, edges) in self_edges.items()
-                if len(edges) == 1
-            ]
-            successful = False
-            for leaf_edge in self_leaf_edges:
-                other_equivalents = [
-                    (node, edges[0])
-                    for (node, edges) in other_edges.items()
-                    if len(edges) == 1
-                    and node.get_part().equivalent(leaf_edge[0].get_part())
-                    and edges[0].get_part().equivalent(leaf_edge[1].get_part())
-                ]
-                # test_equivalents = [(node, edges[0]) for (node, edges) in other_edges.items() if len(edges) == 1]
-                # print(f"{test_equivalents[1][0].get_part()}=={leaf_edge[0].get_part()} and {test_equivalents[1][1].get_part()}=={leaf_edge[1].get_part()}")
-                if len(other_equivalents) > 0:
-                    successful = True
-                    del self_edges[leaf_edge[0]]
-                    del other_edges[other_equivalents[0][0]]
-                    self_edges[leaf_edge[1]].remove(leaf_edge[0])
-                    other_edges[other_equivalents[0][1]].remove(other_equivalents[0][0])
-                    break
-            if not successful:
-                return False
-        self_last_node, self_last_edges = [
-            (node, edges) for (node, edges) in self_edges.items()
-        ][0]
-        other_last_node, other_last_edges = [
-            (node, edges) for (node, edges) in other_edges.items()
-        ][0]
-        return (
-            self_last_node.get_part().equivalent(other_last_node.get_part())
-            and self_last_edges == []
-            and other_last_edges == []
+        return nx.is_isomorphic(
+            self.to_nx(), other.to_nx(), node_match=lambda a, b: a == b
         )
 
     def __hash__(self) -> int:

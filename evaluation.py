@@ -5,6 +5,7 @@ import pickle
 from typing import Dict, List, Set, Tuple
 
 from graph import Graph
+from model import InstanceBased
 from node import Node
 from part import Part
 
@@ -22,19 +23,32 @@ class MyPredictionModel(ABC):
         :return: graph
         """
         # TODO: implement this method
+        # Implemented in InstaceBasedWrapper in model.py
         ...
+
+
+class InstanceBasedWrapper(MyPredictionModel):
+    def __init__(self, instanceBased):
+        self.model = instanceBased
+
+    def predict_graph(self, parts: Set[Part]) -> Graph:
+        return self.model.createGraph(parts)
 
 
 def load_model(file_path: str) -> MyPredictionModel:
     """
-        This method loads the prediction model from a file (needed for evaluating your model on the test set).
-        :param file_path: path to file
-        :return: the loaded prediction model
+    This method loads the prediction model from a file (needed for evaluating your model on the test set).
+    :param file_path: path to file
+    :return: the loaded prediction model
     """
-    ...
+    with open(file_path, "rb") as file:
+        instanceBased = pickle.load(file)
+        return InstanceBasedWrapper(instanceBased)
 
 
-def evaluate(model: MyPredictionModel, data_set: List[Tuple[Set[Part], Graph]]) -> float:
+def evaluate(
+    model: MyPredictionModel, data_set: List[Tuple[Set[Part], Graph]]
+) -> float:
     """
     Evaluates a given prediction model on a given data set.
     :param model: prediction model
@@ -62,13 +76,19 @@ def edge_accuracy(predicted_graph: Graph, target_graph: Graph) -> int:
     :param target_graph:
     :return:
     """
-    assert len(predicted_graph.get_nodes()) == len(target_graph.get_nodes()), 'Mismatch in number of nodes.'
-    assert predicted_graph.get_parts() == target_graph.get_parts(), 'Mismatch in expected and given parts.'
+    assert len(predicted_graph.get_nodes()) == len(
+        target_graph.get_nodes()
+    ), "Mismatch in number of nodes."
+    assert (
+        predicted_graph.get_parts() == target_graph.get_parts()
+    ), "Mismatch in expected and given parts."
 
     best_score = 0
 
     # Determine all permutations for the predicted graph and choose the best one in evaluation
-    perms: List[Tuple[Part]] = __generate_part_list_permutations(predicted_graph.get_parts())
+    perms: List[Tuple[Part]] = __generate_part_list_permutations(
+        predicted_graph.get_parts()
+    )
 
     # Determine one part order for the target graph
     target_parts_order = perms[0]
@@ -99,33 +119,43 @@ def __generate_part_list_permutations(parts: Set[Part]) -> List[Tuple[Part]]:
         else:
             equal_parts_sets[part] = {part}
 
-    multi_occurrence_parts: List[Set[Part]] = [pset for pset in equal_parts_sets.values() if len(pset) > 1]
-    single_occurrence_parts: List[Part] = [next(iter(pset)) for pset in equal_parts_sets.values() if len(pset) == 1]
+    multi_occurrence_parts: List[Set[Part]] = [
+        pset for pset in equal_parts_sets.values() if len(pset) > 1
+    ]
+    single_occurrence_parts: List[Part] = [
+        next(iter(pset)) for pset in equal_parts_sets.values() if len(pset) == 1
+    ]
 
     full_perms: List[Tuple[Part]] = [()]
     for mo_parts in multi_occurrence_parts:
         perms = list(permutations(mo_parts))
-        full_perms = list(perms) if full_perms == [()] else [t1 + t2 for t1 in full_perms for t2 in perms]
+        full_perms = (
+            list(perms)
+            if full_perms == [()]
+            else [t1 + t2 for t1 in full_perms for t2 in perms]
+        )
 
     # Add single occurrence parts
     full_perms = [fp + tuple(single_occurrence_parts) for fp in full_perms]
-    assert all([len(perm) == len(parts) for perm in full_perms]), 'Mismatching number of elements in permutation(s).'
+    assert all(
+        [len(perm) == len(parts) for perm in full_perms]
+    ), "Mismatching number of elements in permutation(s)."
     return full_perms
 
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Example code for evaluation
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Load train data
-    with open('graphs.dat', 'rb') as file:
+    with open("data/graphs.dat", "rb") as file:
         train_graphs: List[Graph] = pickle.load(file)
 
     # Load the final model
-
-    model_file_path = ''  # ToDo
+    model_file_path = "data/model.dat"
     prediction_model: MyPredictionModel = load_model(model_file_path)
 
     # For illustration, compute eval score on train data
     instances = [(graph.get_parts(), graph) for graph in train_graphs[:100]]
     eval_score = evaluate(prediction_model, instances)
+    print(eval_score)

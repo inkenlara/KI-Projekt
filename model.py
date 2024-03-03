@@ -8,12 +8,12 @@ from collections import defaultdict
 import networkx as nx
 
 
-# Create frozen set of part ids
+# Sometimes we use hashable sets to represent edges
 def edge(part1: Part, part2: Part) -> Set[int]:
     return frozenset({part1.get_part_id(), part2.get_part_id()})
 
 
-# Count how often parts appear together
+# Count how often pairs of two parts appear together
 def extract_pairs(graphs: List[Graph]) -> Dict[Set[Part], int]:
     pairs = defaultdict(int)
     for graph in graphs:
@@ -23,8 +23,10 @@ def extract_pairs(graphs: List[Graph]) -> Dict[Set[Part], int]:
     return pairs
 
 
-# Count degrees of parts and existing edges
-def extract_edges(graphs: List[Graph]) -> Tuple[Dict[Part, int], Dict[Set[Part], int]]:
+# Get degrees of parts and count existing edges
+def extract_edges(
+    graphs: List[Graph],
+) -> Tuple[Dict[Part, List[int]], Dict[Set[Part], int]]:
     degrees = defaultdict(list)
     edges = defaultdict(int)
     for graph in graphs:
@@ -91,6 +93,7 @@ class InstanceBased:
         edge_pickle_load=False,
         edge_pickle_store=False,
     ):
+        # Extract information about training instances
         pairs_count = extract_pairs(y)
         degrees, edge_count = extract_edges(y)
         self.edge_priority = init_edge_priority(pairs_count, edge_count)
@@ -101,15 +104,19 @@ class InstanceBased:
         self.sort_priority = defaultdict(float, self.avgDegrees)
         self.train_order(y, order_train_rate, order_train_epochs)
         self.remaining_errors = []
+
         if edge_pickle_load:
+            # Load pre-trained edge-priorities and known remaining-errors
             path = edge_pickle_load if isinstance(edge_pickle_load, str) else "data/"
             with open(f"{path}edge_priority.dat", "rb") as file:
                 self.edge_priority = pickle.load(file)
             with open(f"{path}remaining_errors.dat", "rb") as file:
                 self.remaining_errors = pickle.load(file)
         else:
+            # Trains edge-priorities and stores remaining errors
             self.train_edges(y, edge_train_rate, edge_train_epochs)
         if edge_pickle_store:
+            # Store edge-priorities and remaining errors for re-use
             path = edge_pickle_store if isinstance(edge_pickle_store, str) else "data/"
             with open(f"{path}edge_priority.dat", "wb") as file:
                 pickle.dump(self.edge_priority, file)
@@ -150,7 +157,7 @@ class InstanceBased:
                     # If not a leaf, it should've appeared later
                     compatible = False
                     if train_rate:
-                        # If training, adapt priority accordingly
+                        # If training is active, adapt priority accordingly
                         self.sort_priority[node.get_part().get_part_id()] += train_rate
                     break
                 # Remove the leaf
@@ -158,6 +165,7 @@ class InstanceBased:
             compatible_graphs += compatible
         return compatible_graphs
 
+    # Return a correct edge for adding a new part given a target
     def _next_correct_edge(
         self, edges: List[Tuple[Part, Part]], part: Part, target: Graph
     ) -> Tuple[Part, Part]:
@@ -175,12 +183,14 @@ class InstanceBased:
     def check_for_reminaing_errors(
         self, edges: List[Tuple[Part, Part]], best_edge: Tuple[Part, Part]
     ) -> Tuple[Part, Part]:
+        # Build a dictionary to look up neighbors
         neighbors = defaultdict(set)
         for edge in edges:
             neighbors[edge[0].get_part_id()].add(edge[1].get_part_id())
             neighbors[edge[1].get_part_id()].add(edge[0].get_part_id())
         new_best_edge = best_edge
         max_occurrence = 0
+        # Check whether a known error situation is occurring (including neighbors)
         for error in self.remaining_errors.keys():
             if (
                 error[0] == best_edge[0].get_part_id()
@@ -189,6 +199,7 @@ class InstanceBased:
                 and error[2] in neighbors
                 and error[3] == neighbors[error[2]]
             ):
+                # From suitable error situations, the most frequent is chosen as alternative edge
                 if self.remaining_errors[error] > max_occurrence:
                     max_occurrence = self.remaining_errors[error]
                     new_best_edge = (
@@ -209,10 +220,12 @@ class InstanceBased:
         target=None,
         train_rate=None,
     ) -> Graph:
+        # Order parts and add the first one to an empty graph
         parts = self.predict_order(unordered_parts)
         edges = [(parts[0], parts[1])]
         g = Graph()
         g.add_undirected_edge(parts[0], parts[1])
+        # Add other parts one by one, with one edge each
         for i in range(2, len(parts)):
             best_edge = max(
                 [(p, parts[i]) for p in parts[:i]],
@@ -223,11 +236,13 @@ class InstanceBased:
                 - maxDegreeInfluence  # Dont exceed maxDegree
                 * (g.get_degree(p[0]) == self.maxDegrees[p[0].get_part_id()]),
             )
+            # Do not use known errors during training (would mess up training)
             if not target:
                 best_edge = self.check_for_reminaing_errors(edges, best_edge)
             edges.append(best_edge)
             g.add_undirected_edge(best_edge[0], best_edge[1])
         if target and train_rate and g != target:
+            # During training, adapt edge-priority and add incorrect choice to known errors
             first_wrong = first_wrong_edge(edges, target)
             correct = self._next_correct_edge(
                 edges[:first_wrong], parts[first_wrong + 1], target
@@ -242,13 +257,10 @@ class InstanceBased:
                     correct[1].get_part_id(),
                 )
             ] += 1
-            # print(edges)
-            # g.draw()
-            # print(f"{correct} instead of {edges[first_wrong]}")
-            # target.draw()
             return None
         return g
 
+    # Train for multiple epochs and only use remaining errors from the last one
     def train_edges(self, graphs: List[Graph], train_rate, epochs):
         print(f"Training edge priorities {epochs} epochs: ", end="")
         for epoch in range(epochs):

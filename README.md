@@ -1,4 +1,18 @@
-# ai-project
+# Abstract
+
+Given a set of parts, create a valid construction manual for building those parts together. The output target is a graph that represents which parts are to be connected.
+
+The data stems from a real-world data set. 
+`data/graphs.dat` contains 11.159 graphs representing constructions. Notes about these graphs:
+
+* Undirected, unweighted, non-cyclic and connected without self-loops.
+* They can contain multiple instances of the same part
+* 1.089 different parts; parts are pseudonymized
+
+<img width="982" alt="image" src="https://github.com/inkenlara/ai-building-constructions/assets/74065011/829aa317-c5f5-4d10-9f8a-dc2f86d3506b">
+
+
+# Technical Docs
 
 This project is written with Python `3.8` based on Anaconda (https://www.anaconda.com/distribution/).
 (The project can be upgraded to a higher Python version if required. )

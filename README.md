@@ -1,4 +1,4 @@
-# ai-lecture-project
+# ai-project
 
 This project is written with Python `3.8` based on Anaconda (https://www.anaconda.com/distribution/).
 (The project can be upgraded to a higher Python version if required. )
